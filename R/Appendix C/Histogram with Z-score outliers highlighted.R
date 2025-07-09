@@ -1,6 +1,15 @@
 ################################################################################
-####################### Example outlier in histogram ###########################
+# Simulation study Master Thesis - Jonas Meijerink
+# Histogram with Z-score outliers highlighted distributions
+# Appendix C
+# 23/06/2025
 ################################################################################
+
+
+### Load libraries
+#-----------------
+library(ggplot2)
+library(MASS)
 
 
 ### Define covariance matrix
@@ -15,9 +24,8 @@ diag(Sigma) <- 1
 set.seed(485721023)
 
 
-### Generate exposures from multivariate normal distirbution
-#-----------------------------------------------------------
-
+### Generate exposures from a multivariate normal distribution
+#-------------------------------------------------------------
 X <- mvrnorm(n, mu = mu, Sigma = Sigma)
 
 
@@ -41,8 +49,8 @@ X <- as.data.frame(X)
 z_scores <- scale(X$lbpfos)
 
 
-### Create data frame with outlier flag
-#--------------------------------------
+### Create a data frame with an outlier flag
+#-------------------------------------------
 df_hist <- data.frame(x = X$lbpfos, z = z_scores)
 df_hist$outlier <- ifelse(abs(df_hist$z) > 3, "Outlier", "Normal")
 
