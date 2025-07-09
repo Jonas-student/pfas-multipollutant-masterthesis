@@ -1,15 +1,20 @@
 # Evaluating multipollutant methods for PFAS exposures & immune biomarkers – Master's Thesis
 
-This repository contains the R code and simulations used in my master’s thesis:  
+This repository contains the R code and simulation results used in my master’s thesis:  
 **"PFAS exposure and immuno-cardiometabolic health in teenagers: A Multi-Pollutant Analysis in a hotspot study"**  
-Hasselt University, Master in statistics & data science: quantitative epidemiology, 2025
+This master's thesis was the result of a collaboration between Hasselt University and VITO (Flemish Institute for Technological Research).
 
----
+
+
+## Repository Structure
+
+The repository is organised by thesis chapters outlined below. The data used in this project originates from VITO (Flemish Institute for Technological Research) and is part of the ``Teenager HBM Study - 3M site''. Due to privacy regulations and data protection agreements, this dataset is not publicly available and is not included in this repository. However, the code, workflow, and analysis pipeline provided here can help others understand how different multipollutant methods were applied in this thesis. 
+
+
+## Contents Overview
 
 The full master's thesis is available here:  
 [Download the thesis PDF from Hasselt University Document Server](https://docserv.hasselt.be/handle/123456789/your-thesis-id)
-
-## Contents Overview
 
 ### 1. Introduction
 - Background and context of PFAS exposure and immune health  
@@ -41,17 +46,15 @@ The full master's thesis is available here:
 - Application of multipollutant methods to PFAS exposure and immune-cardiometabolic health in adolescents  
 
 ### 7. Discussion  
-- Interpretation of results, methodological assumptions, considerations and directions for future research.
+- Interpretation of results, methodological assumptions, considerations and directions for future research
 
 ### 8. Conclusion
-- Summary of key findings and limitations.
+- Summary of key findings and limitations
 
 ### Appendices
 - Software details  
 - Additional simulation insights and visualisations  
 - Detailed the simulation procedures 
 
----
 
-## Repository Structure
 
