@@ -2,7 +2,7 @@
 # Simulation study Master Thesis - Jonas Meijerink
 # Histogram with Z-score outliers highlighted distributions
 # Appendix C
-# 23/06/2025
+# 10/07/2025
 ################################################################################
 
 
@@ -21,7 +21,7 @@ diag(Sigma) <- 1
 
 ### Set seed for reproducibility
 #-------------------------------
-set.seed(485721023)
+set.seed(1234)
 
 
 ### Generate exposures from a multivariate normal distribution
