@@ -25,7 +25,7 @@ First, load all necessary packages.
 
 ################################################################################
 # Simulation study Master Thesis - Jonas Meijerink
-# Variance under multicollinearity
+# Variance under multicollinearity for joint and individual effects
 # 09/06/2025
 ################################################################################
 
@@ -48,7 +48,7 @@ setwd("~/Projects/SPEC/wp7/T7_3_1/Rcode_master_thesis_Jonas_Meijerink/Joint effe
 ```
 
 
-# Case 1: effect for the first beta
+# Case 1: Effect for the first beta
 
 ## Simulation procedure
 
@@ -104,36 +104,36 @@ for (n in sample_sizes) {
       model_cont <- lm(y ~ ., data = df_cont)
       
       
-      # Sum of betas test (linear combination)
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
       beta_est <- coef(model_cont)[-1]
       vcov_mat <- vcov(model_cont)[-1, -1]
       sum_beta <- sum(beta_est)
-      one_vec <- rep(1, nrow(vcov_mat))
-      var_sum <- as.numeric(t(one_vec) %*% vcov_mat %*% one_vec)
+      var_sum <- sum(diag(vcov_mat)) + 2 * sum(vcov_mat[lower.tri(vcov_mat)])
+      se_sum_beta <- sqrt(var_sum)
       
-      
-      if (var_sum < 0) {
-        warning("Variance of sum is negative, setting to NA or zero")
-        se_sum_beta <- NA
-        power_sum <- NA
-      } else {
-        se_sum_beta <- sqrt(var_sum)
         
-        # Calculate test statistic and p-value for sum of betas
-        z_stat <- sum_beta / se_sum_beta
-        p_val <- 2 * (1 - pnorm(abs(z_stat)))
-        
-        # Power indicator: 1 if reject H0, 0 otherwise
-        power_sum <- as.integer(p_val < alpha_level)
-      }
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
+      z_stat <- sum_beta / se_sum_beta
+      p_val <- 2 * (1 - pnorm(abs(z_stat)))
+
+
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
+      power_sum <- as.integer(p_val < alpha_level)
       
-      # Extract SEs and compute individual power
+      
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
       se_betas <- summary(model_cont)$coefficients[-1, 2]
       z_individual <- beta_est / se_betas
       p_individual <- 2 * (1 - pnorm(abs(z_individual)))
       power_individual <- as.integer(p_individual < alpha_level)
-      
-      # Store results in long format with power for sum only
+
+
+      ### Store results in long format with power for sum only
+      #-------------------------------------------------------
       results <- rbind(results, data.frame(
         SampleSize = as.factor(n),
         Correlation = rho,
@@ -147,7 +147,7 @@ for (n in sample_sizes) {
 }
 ```
 
-## Visualse the variance across the correlation
+## Visualise the SE across the correlation
 
 ```{r}
 summary_stats <- results %>%
@@ -202,7 +202,7 @@ p1 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable))
       "X7" = "Exposure 7 (beta = 0)"
     )
   )
-
+p1
 ```
 
 ## Power
@@ -260,11 +260,11 @@ p2 <- ggplot(power_summary, aes(x = Correlation, y = MeanPower, color = Variable
     strip.text = element_text(size = 19),
     axis.title.y = element_text(size = 20)
   ) 
-
+p2
 ```
 
 
-# Case 2: effect of each beta parameter
+# Case 2: Effect of each beta parameter
 
 ## Simulation procedure
 
@@ -305,33 +305,39 @@ for (n in sample_sizes) {
     for (sim in 1:n_sim) {
       
       
-      # Simulate data
+      ### Simulate data
+      #----------------
       X <- mvrnorm(n, mu = rep(0,7), Sigma = Sigma)
       X <- scale(X)
       
       
-      # Sample the error terms
+      ### Sample the error terms
+      #-------------------------
       eps <- rnorm(n, mean = 0, sd = sqrt(0.8466327))
       
       
-      # Use a WQS-inspired model to simulate the outcome
+      ### Use a WQS-inspired model to simulate the outcome
+      #---------------------------------------------------
       WQS <- (0.186305814 * X[,1] + 0.051494073 * X[,2] + 0.421321419 * X[,3] + 
               0.020734543 * X[,4] + 0.232626663 * X[,5] + 0.002444214 * X[,6] + 
               0.085073273 * X[,7])
       
       
-      # Combine as a linear model functional form
+      ### Combine as a linear model functional form
+      #--------------------------------------------
       Y <- -1.471401 - 0.2 * WQS + eps
       
       
-      # Fit a linear model with continuous exposure
+      ### Fit a linear model with continuous exposure
+      #----------------------------------------------
       df_cont <- as.data.frame(X)
       names(df_cont) <- paste0("X", 1:7)
-      df_cont$y <- Y  # Fixed: Use Y instead of y
+      df_cont$y <- Y
       model_cont <- lm(y ~ ., data = df_cont)
       
       
-      # Sum of betas test (linear combination)
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
       beta_est <- coef(model_cont)[-1]
       vcov_mat <- vcov(model_cont)[-1, -1]
       sum_beta <- sum(beta_est)
@@ -339,23 +345,27 @@ for (n in sample_sizes) {
       se_sum_beta <- sqrt(var_sum)
       
       
-      # Calculate test statistic and p-value for sum of betas
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
       z_stat <- sum_beta / se_sum_beta
       p_val <- 2 * (1 - pnorm(abs(z_stat)))
       
       
-      # Power indicator: 1 if reject H0, 0 otherwise
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
       power_sum <- as.integer(p_val < alpha_level)
       
       
-      # Extract SEs and compute individual power
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
       se_betas <- summary(model_cont)$coefficients[-1, 2]
       z_individual <- beta_est / se_betas
       p_individual <- 2 * (1 - pnorm(abs(z_individual)))
       power_individual <- as.integer(p_individual < alpha_level)
       
       
-      # Store results in long format with power for sum only
+      ### Store results in long format with power for sum only
+      #-------------------------------------------------------
       results2 <- rbind(results2, data.frame(
         SampleSize = as.factor(n),
         Correlation = rho,
@@ -369,7 +379,7 @@ for (n in sample_sizes) {
 }
 ```
 
-## Visualse the variance across the correlation
+## Visualse the SE across the correlation
 
 ```{r}
 summary_stats <- results2 %>%
@@ -424,6 +434,7 @@ p3 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable))
       "X7" = "Exposure 7 (beta = -0.02)"
     )
   )
+p3
 ```
 
 ## Power
@@ -481,6 +492,7 @@ p4 <- ggplot(power_summary, aes(x = Correlation, y = MeanPower, color = Variable
     strip.text = element_text(size = 19),
     axis.title.y = element_text(size = 20)
   ) 
+p4
 ```
 
 
@@ -532,7 +544,6 @@ for (n in sample_sizes) {
       #----------------
       X <- mvrnorm(n, mu = rep(0,7), Sigma = Sigma)
       y <- alpha  + rnorm(n, mean = 0, sd = sqrt(0.8466327))
-      y_true <- alpha 
       
       
       ### Fit a linear model with continuous exposure
@@ -543,30 +554,28 @@ for (n in sample_sizes) {
       model_cont <- lm(y ~ ., data = df_cont)
       
       
-      # Sum of betas test (linear combination)
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
       beta_est <- coef(model_cont)[-1]
       vcov_mat <- vcov(model_cont)[-1, -1]
       sum_beta <- sum(beta_est)
-      one_vec <- rep(1, nrow(vcov_mat))
-      var_sum <- as.numeric(t(one_vec) %*% vcov_mat %*% one_vec)
+      var_sum <- sum(diag(vcov_mat)) + 2 * sum(vcov_mat[lower.tri(vcov_mat)])
+      se_sum_beta <- sqrt(var_sum)
       
       
-      if (var_sum < 0) {
-        warning("Variance of sum is negative, setting to NA or zero")
-        se_sum_beta <- NA
-        power_sum <- NA
-      } else {
-        se_sum_beta <- sqrt(var_sum)
-        
-        # Calculate test statistic and p-value for sum of betas
-        z_stat <- sum_beta / se_sum_beta
-        p_val <- 2 * (1 - pnorm(abs(z_stat)))
-        
-        # Power indicator: 1 if reject H0, 0 otherwise
-        typeI_sum <- as.integer(p_val < alpha_level)
-      }
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
+      z_stat <- sum_beta / se_sum_beta
+      p_val <- 2 * (1 - pnorm(abs(z_stat)))
       
-      # Extract SEs and compute individual power
+      
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
+      typeI_sum <- as.integer(p_val < alpha_level)
+      
+      
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
       se_betas <- summary(model_cont)$coefficients[-1, 2]
       z_individual <- beta_est / se_betas
       p_individual <- 2 * (1 - pnorm(abs(z_individual)))
@@ -586,7 +595,7 @@ for (n in sample_sizes) {
 }
 ```
 
-## Visualse the variance across the correlation
+## Visualse the SE across the correlation
 
 ```{r}
 summary_stats <- results3 %>%
@@ -641,6 +650,7 @@ p5 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable))
       "X7" = "Exposure 7 (beta = 0)"
     )
   )
+p5
 ```
 
 
@@ -707,6 +717,7 @@ p6 <- ggplot(typeI_summary, aes(x = Correlation, y = MeantypeI, color = Variable
       "X7" = "Exposure 7 (beta = 0)"
     )
   )
+p6
 ```
 
 # Combine all plots
@@ -739,38 +750,6 @@ final_plot <- (
   row3_title / (pc) +
   plot_layout(heights = c(0.01, 0.3,0.01, 0.3,0.01, 0.39))
 ) 
+final_plot
 ```
 
-# Intuition behind joint effect SE
-
-
-A common issue with mixtures is that they are highly correlated. A one-unit change in one exposure, holding the other exposure constant, may not be well supported by the data and depend heavily on model extrapolation.
-
-```{r}
-Sigma <- diag(2)
-Sigma[1:2, 1:2] <- 0.9
-diag(Sigma) <- 1
-X <- mvrnorm(n, mu = rep(0,2), Sigma = Sigma)
-
-
-### Plot Pfna vs Pfda
-#--------------------
-plot(X[,1], X[,2], xlab = "Exposure A", ylab = "Exposure B", alpha=0.5)
-
-
-### Arrow from a reference point
-#-------------------------------
-x0 <- mean(X[,1], na.rm = TRUE)-0.5
-y0 <- mean(X[,2], na.rm = TRUE)-0.5
-
-
-### Scale effect arrows to one-unit increases
-#--------------------------------------------
-arrows(x0, y0, x0 + 1, y0, col = "#0072B2", length = 0.1,, lwd = 3, cex=1.5)      
-text(x0 + 1, y0, "Exposure A + 1", pos = 4, col = "#0072B2", lwd = 3, cex=1.5)
-arrows(x0, y0, x0, y0 + 1, col = "#009E73", length = 0.1, lwd = 3, cex=1.5)     
-text(x0, y0 + 1.1, "Exposure B + 1", pos = 3, col = "#009E73", lwd = 3, cex=1.5)
-arrows(x0, y0, x0 + 1, y0 + 1, col = "#D55E00", length = 0.1, lwd = 3, cex=1.5)
-text(x0 + 1.09, y0 + 1-0.3, "Joint exposure + 1", pos = 4, col = "#D55E00", lwd = 3, cex=1.5)
-
-```
