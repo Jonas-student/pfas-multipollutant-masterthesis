@@ -224,7 +224,7 @@ for (n in sample_sizes) {
     
     ### Sample the error terms using a variance of 0.33 from classical shrinkage methods
     #-----------------------------------------------------------------------------------
-    eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327/4))
+    eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327))
     
     
     ### Use a WQS inspired model to simulate the outcome
@@ -242,13 +242,13 @@ for (n in sample_sizes) {
     
     ### Merge results from all models
     #--------------------------------
-    coef_WQS_rh <- run_WQS_rh_conf(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh <- run_WQS_rh_conf(obs, rh = 100, bs = 10, signal = "one" , 
                               alpha = 0.05, sim_id = i, psi, q = NULL)
     
-    coef_WQS_rh_4 <- run_WQS_rh_conf(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh_4 <- run_WQS_rh_conf(obs, rh = 100, bs = 10, signal = "one" , 
                                 alpha = 0.05, sim_id = i, psi, q = 4)
     
-    coef_WQS_rh_10 <- run_WQS_rh_conf(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh_10 <- run_WQS_rh_conf(obs, rh = 100, bs = 10, signal = "one" , 
                                  alpha = 0.05, sim_id = i, psi, q = 10)
     bootstrap <- rbind(bootstrap , coef_WQS_rh,coef_WQS_rh_4,coef_WQS_rh_10 )
   }
@@ -532,7 +532,7 @@ for (n in sample_sizes) {
       
       ### Sample the error terms using a variance of 0.33 from classical shrinkage methods
       #-----------------------------------------------------------------------------------
-      eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327/4))
+      eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327))
     
     
       ### Use a WQS inspired model to simulate the outcome
@@ -548,13 +548,13 @@ for (n in sample_sizes) {
     
     ### Merge results from all models
     #--------------------------------
-    coef_WQS_rh <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                 alpha = 0.05, sim_id = i, psi, q = NULL, rho)
       
-    coef_WQS_rh_4 <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh_4 <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                   alpha = 0.05, sim_id = i, psi, q = 4, rho)
       
-    coef_WQS_rh_10 <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+    coef_WQS_rh_10 <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                    alpha = 0.05, sim_id = i, psi, q = 10, rho)
     scenarioa <- rbind(scenarioa , coef_WQS_rh,coef_WQS_rh_4,coef_WQS_rh_10 )
     }
@@ -567,9 +567,9 @@ for (n in sample_sizes) {
 scenarioa <- scenarioa %>%
   mutate(
     Quantile = case_when(
-      Method == "WQS (q=) regression (rh=100 , bs=20)" ~ "Continuous",
-      Method == "WQS (q=4) regression (rh=100 , bs=20)" ~ "Quartile",
-      Method == "WQS (q=10) regression (rh=100 , bs=20)" ~ "Decile"
+      Method == "WQS (q=) regression (rh=100 , bs=10)" ~ "Continuous",
+      Method == "WQS (q=4) regression (rh=100 , bs=10)" ~ "Quartile",
+      Method == "WQS (q=10) regression (rh=100 , bs=10)" ~ "Decile"
     )
   )
 scenarioa$Correlation <-  case_when(
@@ -749,7 +749,7 @@ for (n in sample_sizes) {
       
       ### Sample the error terms using a variance of 0.33 from classical shrinkage methods
       #-----------------------------------------------------------------------------------
-      eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327/4))
+      eps <- rnorm(n , mean = 0, sd = sqrt(0.8466327))
     
     
       ### Use a WQS inspired model to simulate the outcome
@@ -770,13 +770,13 @@ for (n in sample_sizes) {
     
       ### Fit the three different models 
       #---------------------------------
-      coef_WQS_rh <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+      coef_WQS_rh <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                 alpha = 0.05, sim_id = i, psi, q = NULL, rho)
       
-      coef_WQS_rh_4 <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+      coef_WQS_rh_4 <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                   alpha = 0.05, sim_id = i, psi, q = 4, rho)
       
-      coef_WQS_rh_10 <- run_WQS_rh(obs, rh = 100, bs = 20, signal = "one" , 
+      coef_WQS_rh_10 <- run_WQS_rh(obs, rh = 100, bs = 10, signal = "one" , 
                                    alpha = 0.05, sim_id = i, psi, q = 10, rho)
   
       
@@ -944,72 +944,3 @@ final_plot <- (
   row3_title / (p2 + p1 + plot_layout(widths = c(0.93, 0.07))) +
   plot_layout(heights = c(0.005, 0.37,0.005, 0.37,0.006, 0.26), guides = "collect")
 ) & theme(legend.position = "bottom")
-
-
-################################################################################
-####################### Example outlier in histogram ###########################
-################################################################################
-
-
-### Define covariance matrix
-#---------------------------
-Sigma <- diag(p)
-Sigma[1:7, 1:7] <- 0.5
-diag(Sigma) <- 1
-
-
-### Set seed for reproducibility
-#-------------------------------
-set.seed(1234)
-
-
-### Generate exposures from multivariate normal distirbution
-#-----------------------------------------------------------
-X <- mvrnorm(n, mu = mu, Sigma = Sigma)
-
-
-### Add outliers
-#---------------
-index <- sample(1:n , 5)
-for(i in index){
-  X[i,] <- X[i,] * (2.5 + runif(7,min = 0,max = 1))
-}
-
-
-### Scale and name
-#-----------------
-X <- scale(X)
-colnames(X) <- c("lbpfos", "pfba", "pfda", "lbpfhxs", "pfna", "lbpfoa", "pfos")
-X <- as.data.frame(X)
-
-
-### Compute Z-scores
-#-------------------
-z_scores <- scale(X$lbpfos)
-
-
-### Create data frame with outlier flag
-#--------------------------------------
-df_hist <- data.frame(x = X$lbpfos, z = z_scores)
-df_hist$outlier <- ifelse(abs(df_hist$z) > 3, "Outlier", "Normal")
-
-
-### Plot histogram
-#-----------------
-ggplot(df_hist, aes(x = x, fill = outlier)) +
-  geom_histogram(bins = 30, alpha = 0.75, color = "black") +
-  scale_fill_manual(values = c("Normal" = "gray", "Outlier" = "red")) +
-  labs(title = "Histogram with Z-score outliers highlighted",
-       x = "Exposure Value", y = "Count",fill = "Exposure type:") +
-  theme_minimal()+
-  theme(
-    plot.title = element_text(size = 16),
-    axis.text.x = element_blank(),        # Remove x-axis labels
-    axis.ticks.x = element_blank(),       # Remove x-axis ticks
-    axis.title.x = element_blank(),       # Remove x-axis title
-    axis.title.y = element_text(size = 15),
-    legend.position = "bottom",           # Move legend to bottom
-    legend.title = element_text(size = 16),
-    legend.text = element_text(size = 16),
-    strip.text = element_text(size = 11.5)
-  ) 
