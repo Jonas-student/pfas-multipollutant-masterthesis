@@ -1,0 +1,755 @@
+---
+title: "Joint effect SE"
+author: "Jonas Meijerink"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    self_contained: True
+    code_folding: hide
+    thumbnails: True
+    lightbox: TRUE
+    gallery: TRUE
+    downcute_theme: "chaos"
+---
+  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center" , out.width = "100%")
+```
+
+# Load data and packages {.tabset}
+
+First, load all necessary packages.
+
+```{r warning=FALSE, message=FALSE}
+
+################################################################################
+# Simulation study Master Thesis - Jonas Meijerink
+# Variance under multicollinearity for joint and individual effects
+# 09/06/2025
+################################################################################
+
+
+rm(list = ls())
+
+
+### Load packages
+#----------------
+library(dplyr)
+library(ggplot2)
+library(MASS)
+library(tidyverse)
+library(mvtnorm)
+library(patchwork)
+library(hrbrthemes)
+
+
+```
+
+
+# Case 1: Effect for the first beta
+
+## Simulation procedure
+
+
+```{r}
+#------------------------------------------------------------------------------#
+################################################################################
+#------------------------------------------------------------------------------#
+
+set.seed(123)
+
+
+### Define the parameters
+#------------------------
+sample_sizes <- c(300)
+correlations <- seq(0,0.99,by=0.1)
+n_sim <- 1000
+beta_true <- c(-0.2, 0, 0, 0, 0, 0, 0)
+alpha <- -1.471401
+alpha_level <- 0.05
+
+
+### Store the results
+#--------------------
+results <- data.frame()
+
+
+for (n in sample_sizes) {
+  for (rho in correlations) {
+    
+    
+    ### Define covariance matrix
+    #---------------------------
+    Sigma <- diag(7)
+    Sigma[1:7, 1:7] <- rho
+    diag(Sigma) <- 1
+    
+    
+    for (sim in 1:n_sim) {
+      
+      
+      ### Simulate data
+      #----------------
+      X <- mvrnorm(n, mu = rep(0,7), Sigma = Sigma)
+      y <- alpha + X %*% beta_true + rnorm(n, mean = 0, sd = sqrt(0.8466327))
+      
+      
+      ### Fit a linear model with continuous exposure
+      #----------------------------------------------
+      df_cont <- as.data.frame(X)
+      names(df_cont) <- paste0("X", 1:7)
+      df_cont$y <- y
+      model_cont <- lm(y ~ ., data = df_cont)
+      
+      
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
+      beta_est <- coef(model_cont)[-1]
+      vcov_mat <- vcov(model_cont)[-1, -1]
+      sum_beta <- sum(beta_est)
+      var_sum <- sum(diag(vcov_mat)) + 2 * sum(vcov_mat[lower.tri(vcov_mat)])
+      se_sum_beta <- sqrt(var_sum)
+      
+        
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
+      z_stat <- sum_beta / se_sum_beta
+      p_val <- 2 * (1 - pnorm(abs(z_stat)))
+
+
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
+      power_sum <- as.integer(p_val < alpha_level)
+      
+      
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
+      se_betas <- summary(model_cont)$coefficients[-1, 2]
+      z_individual <- beta_est / se_betas
+      p_individual <- 2 * (1 - pnorm(abs(z_individual)))
+      power_individual <- as.integer(p_individual < alpha_level)
+
+
+      ### Store results in long format with power for sum only
+      #-------------------------------------------------------
+      results <- rbind(results, data.frame(
+        SampleSize = as.factor(n),
+        Correlation = rho,
+        Simulation = sim,
+        Variable = c("Sum", names(se_betas)),
+        SE = c(se_sum_beta, se_betas),
+        Power = c(power_sum, power_individual)
+      ))
+    }
+  }
+}
+```
+
+## Visualise the SE across the correlation
+
+```{r}
+summary_stats <- results %>%
+  group_by(Correlation, Variable) %>%
+  summarise(
+    mean_SE = mean(SE),
+    low = quantile(SE, 0.025),
+    upp = quantile(SE, 0.975),
+    .groups = "drop"
+  )
+
+
+p1 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable)) +
+  geom_pointrange(aes(ymin = low, ymax = upp), position = position_dodge(width = 0.1), alpha=0.5) +
+  scale_x_continuous(
+    breaks = seq(0, 0.9, by = 0.1), 
+    limits = c(-0.05, 0.95)
+  ) +
+  theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_text(size = 19),
+    axis.title.y = element_text(size = 20)
+  ) +
+  labs(y = "Average estimated standard error",
+       x = "Pairwise correlation between all exposures")+
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+    labels = c(
+      "Sum" = "Sum of coefficients (-0.2)",
+      "X1" = "Exposure 1 (beta = -0.2)",
+      "X2" = "Exposure 2 (beta = 0)",
+      "X3" = "Exposure 3 (beta = 0)",
+      "X4" = "Exposure 4 (beta = 0)",
+      "X5" = "Exposure 5 (beta = 0)",
+      "X6" = "Exposure 6 (beta = 0)",
+      "X7" = "Exposure 7 (beta = 0)"
+    )
+  )
+p1
+```
+
+## Power
+
+```{r}
+power_summary <- results %>%
+  group_by(Correlation, Variable) %>%
+  summarise(MeanPower = mean(Power, na.rm = TRUE), 
+            n = n(),
+            low = binom.test(sum(Power, na.rm = TRUE), n, conf.level = 0.95)$conf.int[1],
+            upp = binom.test(sum(Power, na.rm = TRUE), n, conf.level = 0.95)$conf.int[2],
+            .groups = 'drop')
+
+
+p2 <- ggplot(power_summary, aes(x = Correlation, y = MeanPower, color = Variable)) +
+  geom_line(linewidth = 0.01,alpha = 0.5, show.legend =FALSE) +
+  geom_pointrange(aes(ymin = low, ymax = upp), position = position_jitter(width = 0.01, height = 0), alpha=0.5,show.legend =FALSE)+
+  scale_x_continuous(breaks = seq(0, 0.9, by = 0.1)) +
+  labs(
+    x = "Pairwise correlation between all exposures",
+    y = "Emperical power",
+    color = "Variable"
+  ) +
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+    labels = c(
+      "Sum" = "Sum of Coefficients (-0.2)",
+      "X1" = "Exposure 1 (beta = -0.2)",
+      "X2" = "Exposure 2 (beta = 0)",
+      "X3" = "Exposure 3 (beta = 0)",
+      "X4" = "Exposure 4 (beta = 0)",
+      "X5" = "Exposure 5 (beta = 0)",
+      "X6" = "Exposure 6 (beta = 0)",
+      "X7" = "Exposure 7 (beta = 0)"
+    )
+  ) +
+  theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_text(size = 19),
+    axis.title.y = element_text(size = 20)
+  ) 
+p2
+```
+
+
+# Case 2: Effect of each beta parameter
+
+## Simulation procedure
+
+
+```{r}
+#------------------------------------------------------------------------------#
+################################################################################
+#------------------------------------------------------------------------------#
+
+set.seed(123)
+
+
+### Define the parameters
+#------------------------
+sample_sizes <- c(300)
+correlations <- seq(0,0.99,by=0.1)
+n_sim <- 1000
+alpha <- -1.471401
+alpha_level <- 0.05
+
+
+### Store the results
+#--------------------
+results2 <- data.frame()
+
+
+for (n in sample_sizes) {
+  for (rho in correlations) {
+    
+    
+    ### Define covariance matrix
+    #---------------------------
+    Sigma <- diag(7)
+    Sigma[1:7, 1:7] <- rho
+    diag(Sigma) <- 1
+    
+    
+    for (sim in 1:n_sim) {
+      
+      
+      ### Simulate data
+      #----------------
+      X <- mvrnorm(n, mu = rep(0,7), Sigma = Sigma)
+      X <- scale(X)
+      
+      
+      ### Sample the error terms
+      #-------------------------
+      eps <- rnorm(n, mean = 0, sd = sqrt(0.8466327))
+      
+      
+      ### Use a WQS-inspired model to simulate the outcome
+      #---------------------------------------------------
+      WQS <- (0.186305814 * X[,1] + 0.051494073 * X[,2] + 0.421321419 * X[,3] + 
+              0.020734543 * X[,4] + 0.232626663 * X[,5] + 0.002444214 * X[,6] + 
+              0.085073273 * X[,7])
+      
+      
+      ### Combine as a linear model functional form
+      #--------------------------------------------
+      Y <- -1.471401 - 0.2 * WQS + eps
+      
+      
+      ### Fit a linear model with continuous exposure
+      #----------------------------------------------
+      df_cont <- as.data.frame(X)
+      names(df_cont) <- paste0("X", 1:7)
+      df_cont$y <- Y
+      model_cont <- lm(y ~ ., data = df_cont)
+      
+      
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
+      beta_est <- coef(model_cont)[-1]
+      vcov_mat <- vcov(model_cont)[-1, -1]
+      sum_beta <- sum(beta_est)
+      var_sum <- sum(diag(vcov_mat)) + 2 * sum(vcov_mat[lower.tri(vcov_mat)])
+      se_sum_beta <- sqrt(var_sum)
+      
+      
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
+      z_stat <- sum_beta / se_sum_beta
+      p_val <- 2 * (1 - pnorm(abs(z_stat)))
+      
+      
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
+      power_sum <- as.integer(p_val < alpha_level)
+      
+      
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
+      se_betas <- summary(model_cont)$coefficients[-1, 2]
+      z_individual <- beta_est / se_betas
+      p_individual <- 2 * (1 - pnorm(abs(z_individual)))
+      power_individual <- as.integer(p_individual < alpha_level)
+      
+      
+      ### Store results in long format with power for sum only
+      #-------------------------------------------------------
+      results2 <- rbind(results2, data.frame(
+        SampleSize = as.factor(n),
+        Correlation = rho,
+        Simulation = sim,
+        Variable = c("Sum", names(se_betas)),
+        SE = c(se_sum_beta, se_betas),
+        Power = c(power_sum, power_individual)
+      ))
+    }
+  }
+}
+```
+
+## Visualise the SE across the correlation
+
+```{r}
+summary_stats <- results2 %>%
+  group_by(Correlation, Variable) %>%
+  summarise(
+    mean_SE = mean(SE),
+    low = quantile(SE, 0.025),
+    upp = quantile(SE, 0.975),
+    .groups = "drop"
+  )
+
+
+p3 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable)) +
+  geom_pointrange(aes(ymin = low, ymax = upp), position = position_dodge(width = 0.1), alpha=0.5) +
+  scale_x_continuous(
+    breaks = seq(0, 0.9, by = 0.1), 
+    limits = c(-0.05, 0.95)
+  ) +
+  theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_text(size = 19),
+    axis.title.y = element_text(size = 20)
+  ) +
+  labs(y = "Average estimated standard error",
+       x = "Pairwise correlation between all exposures")+
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+  labels = c(
+      "Sum" = "Sum of coefficients (-0.2)",
+      "X1" = "Exposure 1 (beta = -0.04)",
+      "X2" = "Exposure 2 (beta = -0.01)",
+      "X3" = "Exposure 3 (beta = -0.08)",
+      "X4" = "Exposure 4 (beta = 0.000)",
+      "X5" = "Exposure 5 (beta = -0.05)",
+      "X6" = "Exposure 6 (beta = 0.00)",
+      "X7" = "Exposure 7 (beta = -0.02)"
+    )
+  )
+p3
+```
+
+## Power
+
+```{r}
+power_summary <- results2 %>%
+  group_by(Correlation, Variable) %>%
+  summarise(MeanPower = mean(Power, na.rm = TRUE), 
+            n = n(),
+            low = binom.test(sum(Power, na.rm = TRUE), n, conf.level = 0.95)$conf.int[1],
+            upp = binom.test(sum(Power, na.rm = TRUE), n, conf.level = 0.95)$conf.int[2],
+            .groups = 'drop')
+
+
+p4 <- ggplot(power_summary, aes(x = Correlation, y = MeanPower, color = Variable)) +
+  geom_line(linewidth = 0.01,alpha = 0.2, show.legend =FALSE) +
+  geom_pointrange(aes(ymin = low, ymax = upp), position = position_jitter(width = 0.01, height = 0), alpha=0.5,show.legend =FALSE)+
+  scale_x_continuous(breaks = seq(0, 0.9, by = 0.1)) +
+  labs(
+    x = "Pairwise correlation between all exposures",
+    y = "Emperical power",
+    color = "Variable"
+  ) +
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+    labels = c(
+      "Sum" = "Sum of coefficients (-0.2)",
+      "X1" = "Exposure 1 (beta = -0.04)",
+      "X2" = "Exposure 2 (beta = -0.01)",
+      "X3" = "Exposure 3 (beta = -0.08)",
+      "X4" = "Exposure 4 (beta = 0.000)",
+      "X5" = "Exposure 5 (beta = -0.05)",
+      "X6" = "Exposure 6 (beta = 0.00)",
+      "X7" = "Exposure 7 (beta = -0.02)"
+    )
+  ) +
+  theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_text(size = 19),
+    axis.title.y = element_text(size = 20)
+  ) 
+p4
+```
+
+
+
+
+# Case 3: no effect of beta parameters
+
+## Simulation procedure
+
+
+```{r}
+#------------------------------------------------------------------------------#
+################################################################################
+#------------------------------------------------------------------------------#
+
+
+set.seed(123)
+
+### Define the parameters
+#------------------------
+sample_sizes <- c(300)
+correlations <- seq(0,0.99,by=0.1)
+n_sim <- 1000
+beta_true <- c(0, 0, 0, 0, 0, 0, 0)
+alpha <- -1.471401
+alpha_level <- 0.05
+
+
+### Store the results
+#--------------------
+results3 <- data.frame()
+
+
+for (n in sample_sizes) {
+  for (rho in correlations) {
+    
+    
+    ### Define covariance matrix
+    #---------------------------
+    Sigma <- diag(7)
+    Sigma[1:7, 1:7] <- rho
+    diag(Sigma) <- 1
+    
+    
+    for (sim in 1:n_sim) {
+      
+      
+      ### Simulate data
+      #----------------
+      X <- mvrnorm(n, mu = rep(0,7), Sigma = Sigma)
+      y <- alpha  + rnorm(n, mean = 0, sd = sqrt(0.8466327))
+      
+      
+      ### Fit a linear model with continuous exposure
+      #----------------------------------------------
+      df_cont <- as.data.frame(X)
+      names(df_cont) <- paste0("X", 1:7)
+      df_cont$y <- y
+      model_cont <- lm(y ~ ., data = df_cont)
+      
+      
+      ### Sum of betas test (linear combination)
+      #-----------------------------------------
+      beta_est <- coef(model_cont)[-1]
+      vcov_mat <- vcov(model_cont)[-1, -1]
+      sum_beta <- sum(beta_est)
+      var_sum <- sum(diag(vcov_mat)) + 2 * sum(vcov_mat[lower.tri(vcov_mat)])
+      se_sum_beta <- sqrt(var_sum)
+      
+      
+      ### Calculate test statistic and p-value for sum of betas
+      #--------------------------------------------------------
+      z_stat <- sum_beta / se_sum_beta
+      p_val <- 2 * (1 - pnorm(abs(z_stat)))
+      
+      
+      ### Power indicator: 1 if reject H0, 0 otherwise
+      #-----------------------------------------------
+      typeI_sum <- as.integer(p_val < alpha_level)
+      
+      
+      ### Extract SEs and compute individual power
+      #-------------------------------------------
+      se_betas <- summary(model_cont)$coefficients[-1, 2]
+      z_individual <- beta_est / se_betas
+      p_individual <- 2 * (1 - pnorm(abs(z_individual)))
+      typeI_individual <- as.integer(p_individual < alpha_level)
+      
+      # Store results in long format with power for sum only
+      results3 <- rbind(results3, data.frame(
+        SampleSize = as.factor(n),
+        Correlation = rho,
+        Simulation = sim,
+        Variable = c("Sum", names(se_betas)),
+        SE = c(se_sum_beta, se_betas),
+        typeI = c(typeI_sum, typeI_individual)
+      ))
+    }
+  }
+}
+```
+
+## Visualise the SE across the correlation
+
+```{r}
+summary_stats <- results3 %>%
+  group_by(Correlation, Variable) %>%
+  summarise(
+    mean_SE = mean(SE),
+    low = quantile(SE, 0.025),
+    upp = quantile(SE, 0.975),
+    .groups = "drop"
+  )
+
+
+p5 <- ggplot(summary_stats, aes(x = Correlation, y = mean_SE, color = Variable)) +
+  geom_pointrange(aes(ymin = upp, ymax =low), position = position_dodge(width = 0.1), alpha=0.5) +
+  scale_x_continuous(
+    breaks = seq(0, 0.9, by = 0.1), 
+    limits = c(-0.05, 0.95)
+  ) +
+ theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_text(size = 19),
+    axis.title.y = element_text(size = 20)
+  ) +
+  labs(y = "Average estimated standard error",
+       x = "Pairwise correlation between all exposures")+
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+  labels = c(
+      "Sum" = "Sum of coefficients (0)",
+      "X1" = "Exposure 1 (beta = 0)",
+      "X2" = "Exposure 2 (beta = 0)",
+      "X3" = "Exposure 3 (beta = 0)",
+      "X4" = "Exposure 4 (beta = 0)",
+      "X5" = "Exposure 5 (beta = 0)",
+      "X6" = "Exposure 6 (beta = 0)",
+      "X7" = "Exposure 7 (beta = 0)"
+    )
+  )
+p5
+```
+
+
+## Type I error
+
+```{r}
+typeI_summary <- results3 %>%
+  group_by(Correlation, Variable) %>%
+  summarise(MeantypeI = mean(typeI, na.rm = TRUE), 
+            n = n(),
+            low = binom.test(sum(typeI, na.rm = TRUE), n, conf.level = 0.95)$conf.int[1],
+            upp = binom.test(sum(typeI, na.rm = TRUE), n, conf.level = 0.95)$conf.int[2],
+            .groups = 'drop')
+
+
+p6 <- ggplot(typeI_summary, aes(x = Correlation, y = MeantypeI, color = Variable)) +
+  geom_line(linewidth = 0.01,alpha = 0.2,show.legend =FALSE) +
+  geom_pointrange(aes(ymin = low, ymax = upp), position = position_jitter(width = 0.01, height = 0), alpha=0.5,show.legend =FALSE)+
+  labs(
+    x = "Pairwise correlation between all exposures",
+    y = "Empirical Type I error rate",
+    color = "Variable"
+  ) +
+  facet_grid(Variable ~" " , ) + 
+  theme_ipsum() + 
+  theme(
+    plot.title = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_blank(),       # Remove x-axis ticks
+    axis.title.x = element_text(size = 17),      
+    legend.position = "bottom",           # Move legend to bottom
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 17),
+    strip.text = element_blank(),
+    axis.title.y = element_text(size = 20)
+  ) +
+  scale_y_continuous(
+    breaks = c(0.02,0.08), 
+    limits = c(0.02,0.08)
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 0.9, by = 0.1), 
+    limits = c(-0.05, 0.95)
+  ) +
+  scale_color_manual(
+    values = c(
+      "Sum" = "black",
+      "X1" = "red",
+      "X2" = "blue",
+      "X3" = "green",
+      "X4" = "purple",
+      "X5" = "orange",
+      "X6" = "brown",
+      "X7" = "pink"
+    ),
+  labels = c(
+      "Sum" = "Sum of coefficients (0)",
+      "X1" = "Exposure 1 (beta = 0)",
+      "X2" = "Exposure 2 (beta = 0)",
+      "X3" = "Exposure 3 (beta = 0)",
+      "X4" = "Exposure 4 (beta = 0)",
+      "X5" = "Exposure 5 (beta = 0)",
+      "X6" = "Exposure 6 (beta = 0)",
+      "X7" = "Exposure 7 (beta = 0)"
+    )
+  )
+p6
+```
+
+# Combine all plots
+
+```{r}
+################################################################################
+############################ Combine all plots #################################
+
+
+### Row titles
+#-------------
+row1_title <- wrap_elements(full = grid::textGrob("Effect scenario (a): single exposure effect", gp = grid::gpar(fontsize = 16, fontface = "bold")))
+row2_title <- wrap_elements(full = grid::textGrob("Effect scenario (b): Large and small exposure effects", gp = grid::gpar(fontsize = 16, fontface = "bold")))
+row3_title <- wrap_elements(full = grid::textGrob("Effect scenario (c):  No exposure effect", gp = grid::gpar(fontsize = 16, fontface = "bold")))
+
+
+### Combine plots with row titles
+#--------------------------------
+pa <- p1 + p2 + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+pb <- p3 + p4 + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+pc <- p5 + p6 + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
+
+
+### Combine plots with row titles
+#--------------------------------
+final_plot <- (
+  row1_title / (pa) /
+  row2_title / (pb) /
+  row3_title / (pc) +
+  plot_layout(heights = c(0.01, 0.3,0.01, 0.3,0.01, 0.39))
+) 
+final_plot
+```
+
+

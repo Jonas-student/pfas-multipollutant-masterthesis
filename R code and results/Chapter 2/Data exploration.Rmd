@@ -1,0 +1,129 @@
+################################################################################
+# Data exploration - Jonas Meijerink
+# LOQ and correlation
+# 11/08/2025
+################################################################################
+
+
+### Load packages
+#----------------
+library(readxl)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+
+
+### Load data
+#------------
+df <- read_excel("~/UHasselt/Dataset_HBM_3M.xlsx")
+
+
+### Store all 26 exposures
+#-------------------------
+ALL_PFAS <- data.frame(
+  PFOS = df$pfos,
+  "PFOS (branched)"  = df$bpfos_imp,
+  "PFOS (total)" = df$lbpfos, 
+  PFOA = df$pfoa, 
+  "PFOA (total)" = df$lbpfoa, 
+  PFHXS = df$pfhxs, 
+  "PFHXS (total)" = df$lbpfhxs, 
+  PFNA = df$pfna, 
+  PFDA = df$pfda, 
+  PFBA = df$pfba, 
+  PFHpA = df$pfhpa, 
+  PFHpS = df$pfhps,
+  PFUnDA = df$pfunda, 
+  PFDoDA = df$pfdoda, 
+  PFHxA = df$pfhxa, 
+  PFBS = df$pfbs, 
+  MePFOSAA = df$mepfosaa, 
+  "MePFOSAA (total)" = df$lbnmepfosaa,
+  "6:2 FTS" = df$sixfts, 
+  PFPeA = df$pfpea, 
+  PFTrDA = df$pftrda, 
+  PFTeDA = df$pfteda, 
+  PFHxDA = df$pfhxda, 
+  PFBSA = df$pfbsa, 
+  EtPFOSAA = df$etfosaa, 
+  "EtPFOSAA (total)" = df$lbetpfosaa, 
+  `6:2 diPAP` = df$sixdipap,
+  check.names = FALSE
+)
+
+
+### Set default LOQ
+#------------------
+LOQ <- -3
+
+
+### Calculate % above LOQ
+#------------------------
+percent_above_loq <- sapply(ALL_PFAS, function(x) mean(x > LOQ , na.rm = TRUE) * 100)
+
+
+### Create plotting dataframe
+#----------------------------
+plot_df <- data.frame(
+  PFAS = names(percent_above_loq),
+  Percentage = percent_above_loq
+)
+
+
+### Plot in two columns
+#----------------------
+ggplot(plot_df, aes(x = reorder(PFAS, -Percentage), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = sprintf("%.1f%%", Percentage)), hjust = -0.1, size = 4.5) +
+  coord_flip() +
+  facet_wrap(~ ., ncol = 2, scales = "free_y") +
+  labs(title = " ",
+       x = "PFAS Compound", y = "Percentage above LOQ") +
+  theme_minimal() +
+  ylim(0,105)+
+  theme(strip.background = element_blank(),
+        strip.text = element_blank(),
+        text = element_text(size = 15),
+        axis.text.x = element_text(size = 14), 
+        plot.title = element_blank())+
+  theme(axis.ticks.length = unit(0, "pt"))
+
+
+### Sub selection of PFAS with sufficient number above LOD
+#---------------------------------------------------------
+PFAS_all <- data.frame("PFHxS (total)" =log(df$lbpfhxs_imp) , "PFOA (total)" = log(df$lbpfoa_imp) , "PFOS (total)" = log(df$lbpfos_imp) ,"PFOS (branched)" = log(df$bpfos_imp) , "PFBA" = log(df$pfba_imp), "PFDA" = log(df$pfda_imp) , "PFHxS" = log(df$pfhxs_imp) , 
+                       "PFNA" = log(df$pfna_imp) , "PFOA" = log(df$pfoa_imp), "PFOS" = log(df$pfos_imp),
+                       check.names = FALSE)
+
+
+
+### Get upper triangle of the correlation matrix
+#-----------------------------------------------
+cormat <- round(cor(PFAS_all
+                    , use="complete.obs" , method = "spearman"),2)
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+upper_tri <- get_upper_tri(cormat)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+
+### Plot the correlation
+#-----------------------
+ggplot(melted_cormat, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") + 
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", name="Spearman correlation")  + 
+  theme_minimal() + labs(x = "", y = "", title = "Correlation among PFASs + confouding variables") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label = value), color = "black", size = 4) + 
+  theme(strip.background = element_blank(),
+        strip.text = element_blank(),
+        text = element_text(size = 15),
+        axis.text.x = element_text(size = 14), 
+        plot.title = element_blank())+
+  
+  theme(axis.ticks.length = unit(0, "pt"))
+
+
